@@ -1231,3 +1231,57 @@ describe('GeoJSONSource.getClusterLeaves', () => {
         vi.resetAllMocks();
     });
 });
+
+/**
+ * Regression test for promoteId with updateData (bug fixed in #7320).
+ */
+describe('GeoJSONSource.updateData with promoteId', () => {
+    /**
+     * REGRESSION TEST: Verifies promoteId is passed to worker when calling updateData().
+     *
+     * Before the fix, promoteId was only at the top level of workerOptions.
+     * The worker reads it from geojsonVtOptions.promoteId, so updates were ignored.
+     */
+    test('passes promoteId to worker in geojsonVtOptions when updating', async () => {
+        const spy = vi.fn();
+        const mockDispatcher = wrapDispatcher({
+            sendAsync(message) {
+                spy(message);
+                return Promise.resolve({});
+            }
+        });
+
+        const initialData: GeoJSON.FeatureCollection = {
+            type: 'FeatureCollection',
+            features: [{
+                type: 'Feature',
+                geometry: {type: 'Point', coordinates: [0, 0]},
+                properties: {myId: 'feature1', name: 'Original'}
+            }]
+        };
+
+        const source = new GeoJSONSource('id', {
+            data: initialData,
+            promoteId: 'myId'
+        } as GeoJSONSourceOptions, mockDispatcher, undefined);
+        source.load();
+        await sleep(0);
+
+        spy.mockClear();
+
+        // Call updateData - this is what was broken before the fix
+        source.updateData({
+            remove: ['feature1'],
+            add: [{
+                type: 'Feature',
+                geometry: {type: 'Point', coordinates: [1, 1]},
+                properties: {myId: 'feature2', name: 'New Feature'}
+            }]
+        });
+        await sleep(0);
+
+        expect(spy).toHaveBeenCalledTimes(1);
+        // Critical: promoteId must be inside geojsonVtOptions for the worker to find features
+        expect(spy.mock.calls[0][0].data.geojsonVtOptions.promoteId).toBe('myId');
+    });
+});
