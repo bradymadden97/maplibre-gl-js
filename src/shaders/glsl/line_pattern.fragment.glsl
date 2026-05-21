@@ -24,6 +24,7 @@ in float v_depth;
 #pragma mapbox: define lowp float pixel_ratio_to
 #pragma mapbox: define lowp float blur
 #pragma mapbox: define lowp float opacity
+#pragma mapbox: define highp vec4 color
 
 void main() {
     #pragma mapbox: initialize mediump vec4 pattern_from
@@ -33,6 +34,7 @@ void main() {
 
     #pragma mapbox: initialize lowp float blur
     #pragma mapbox: initialize lowp float opacity
+    #pragma mapbox: initialize highp vec4 color
 
     vec2 pattern_tl_a = pattern_from.xy;
     vec2 pattern_br_a = pattern_from.zw;
@@ -71,10 +73,20 @@ void main() {
     vec2 pos_a = mix(pattern_tl_a * texel_size - texel_size, pattern_br_a * texel_size + texel_size, vec2(x_a, y));
     vec2 pos_b = mix(pattern_tl_b * texel_size - texel_size, pattern_br_b * texel_size + texel_size, vec2(x_b, y));
 
-    vec4 color = mix(texture(u_image, pos_a), texture(u_image, pos_b), u_fade);
+#ifdef SDF_PATTERN
+    highp float sdf_edge = (256.0 - 64.0) / 256.0;
+    highp float sdf_gamma = 0.105 / u_device_pixel_ratio;
+    float sdf_alpha_a = smoothstep(sdf_edge - sdf_gamma, sdf_edge + sdf_gamma, texture(u_image, pos_a).a);
+    float sdf_alpha_b = smoothstep(sdf_edge - sdf_gamma, sdf_edge + sdf_gamma, texture(u_image, pos_b).a);
+    vec4 sdf_color_a = color * sdf_alpha_a;
+    vec4 sdf_color_b = color * sdf_alpha_b;
+    vec4 patternColor = mix(sdf_color_a, sdf_color_b, u_fade);
+#else
+    vec4 patternColor = mix(texture(u_image, pos_a), texture(u_image, pos_b), u_fade);
+#endif
 
     float finalOpacity = u_opacity_override ? 1.0 : opacity;
-    fragColor = color * alpha * finalOpacity;
+    fragColor = patternColor * alpha * finalOpacity;
 
     #ifdef GLOBE
     if (v_depth > 1.0) {

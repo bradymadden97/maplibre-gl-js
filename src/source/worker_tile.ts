@@ -24,6 +24,34 @@ import type {PromoteIdSpecification} from '@maplibre/maplibre-gl-style-spec';
 import type {VectorTileLike} from '@maplibre/vt-pbf';
 import {type GetDashesResponse, MessageType, type GetGlyphsResponse, type GetImagesResponse} from '../util/actor_messages.ts';
 import type {SubdivisionGranularitySetting} from '../render/subdivision_granularity_settings.ts';
+
+function detectSdfPatterns(bucket: FillBucket | LineBucket, patternMap: GetImagesResponse): boolean {
+    let sdfPatterns: boolean | undefined;
+    const check = (isSdf: boolean) => {
+        if (sdfPatterns === undefined) {
+            sdfPatterns = isSdf;
+        } else if (sdfPatterns !== isSdf) {
+            warnOnce('Cannot mix SDF and non-SDF patterns in one layer');
+        }
+    };
+    // Data-driven patterns
+    for (const feature of bucket.patternFeatures) {
+        for (const layerId in feature.patterns) {
+            const p = feature.patterns[layerId];
+            check(!!(patternMap[p.min]?.sdf || patternMap[p.mid]?.sdf || patternMap[p.max]?.sdf));
+        }
+    }
+    // Constant patterns
+    const paintPropName = bucket instanceof LineBucket ? 'line-pattern' : 'fill-pattern';
+    for (const layer of bucket.layers) {
+        const constantPattern = (layer as any).paint.get(paintPropName).constantOr(null);
+        if (constantPattern) {
+            check(!!patternMap[constantPattern.to]?.sdf);
+        }
+    }
+    return sdfPatterns ?? false;
+}
+
 export class WorkerTile {
     tileID: OverscaledTileID;
     uid: string | number;
@@ -189,6 +217,9 @@ export class WorkerTile {
             } else if (bucket.hasDependencies && (bucket instanceof FillBucket || bucket instanceof FillExtrusionBucket || bucket instanceof LineBucket)) {
                 recalculateLayers(bucket.layers, this.zoom, availableImages);
                 bucket.addFeatures(options, this.tileID.canonical, imageAtlas.patternPositions, dashPositions);
+                if (bucket instanceof LineBucket) {
+                    bucket.sdfPatterns = detectSdfPatterns(bucket, patternMap);
+                }
             }
         }
 

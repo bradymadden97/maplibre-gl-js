@@ -257,9 +257,11 @@ function drawLineTiles(
         const bucket: LineBucket = (tile.getBucket(layer) as any);
         if (!bucket) continue;
 
+        const sdfDefines: string[] = (image && bucket.sdfPatterns) ? ['#define SDF_PATTERN'] : [];
+
         const programConfiguration = bucket.programConfigurations.get(layer.id);
         const prevProgram = painter.context.program.get();
-        const program = painter.useProgram(programId, programConfiguration);
+        const program = painter.useProgram(programId, programConfiguration, false, sdfDefines);
         const programChanged = firstTile || program.program !== prevProgram;
         const terrainData = useTerrain ? painter.style.map.terrain?.getTerrainData(coord) : null;
 

@@ -117,6 +117,7 @@ export class LineBucket implements Bucket {
     indexBuffer: IndexBuffer;
 
     hasDependencies: boolean;
+    sdfPatterns: boolean;
     programConfigurations: ProgramConfigurationSet<LineStyleLayer>;
     segments: SegmentVector;
     uploaded: boolean;
@@ -128,6 +129,7 @@ export class LineBucket implements Bucket {
         this.layerIds = this.layers.map(layer => layer.id);
         this.index = options.index;
         this.hasDependencies = false;
+        this.sdfPatterns = false;
         this.patternFeatures = [];
         this.lineClipsArray = [];
         this.gradients = {};

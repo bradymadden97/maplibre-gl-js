@@ -37,6 +37,7 @@ out float v_depth;
 #pragma mapbox: define lowp vec4 pattern_to
 #pragma mapbox: define lowp float pixel_ratio_from
 #pragma mapbox: define lowp float pixel_ratio_to
+#pragma mapbox: define highp vec4 color
 
 void main() {
     #pragma mapbox: initialize lowp float blur
@@ -49,6 +50,7 @@ void main() {
     #pragma mapbox: initialize mediump vec4 pattern_to
     #pragma mapbox: initialize lowp float pixel_ratio_from
     #pragma mapbox: initialize lowp float pixel_ratio_to
+    #pragma mapbox: initialize highp vec4 color
 
     // the distance over which the line edge fades out.
     // Retina devices need a smaller distance to avoid aliasing.
